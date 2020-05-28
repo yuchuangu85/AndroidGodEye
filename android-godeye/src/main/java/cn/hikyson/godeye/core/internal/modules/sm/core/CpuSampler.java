@@ -17,8 +17,6 @@ import cn.hikyson.godeye.core.utils.IoUtil;
  * 必须要doSample两次才有数据
  */
 public class CpuSampler extends AbstractSampler {
-
-    private static final String TAG = "CpuSampler";
     private static final int BUFFER_SIZE = 1000;
 
     private final int BUSY_TIME;
@@ -33,8 +31,8 @@ public class CpuSampler extends AbstractSampler {
     private long mTotalLast = 0;
     private long mAppCpuTimeLast = 0;
 
-    public CpuSampler(long sampleInterval) {
-        super(sampleInterval);
+    public CpuSampler(long sampleInterval, long sampleDelay) {
+        super(sampleInterval, sampleDelay);
         BUSY_TIME = (int) (mSampleInterval * 1.2f);
     }
 
@@ -119,7 +117,7 @@ public class CpuSampler extends AbstractSampler {
              * 从系统启动开始，花在各种处理上的apu时间
              */
             parse(cpuRate, pidCpuRate);
-        } catch (Throwable throwable) {
+        } catch (Throwable ignored) {
         } finally {
             IoUtil.closeSilently(cpuReader);
             IoUtil.closeSilently(pidReader);
@@ -168,18 +166,23 @@ public class CpuSampler extends AbstractSampler {
              * 系统进程cpu使用率
              * io等待时间占比
              */
-            CpuInfo cpuInfo = new CpuInfo((totalTime - idleTime) * 100L / totalTime, (appCpuTime - mAppCpuTimeLast) *
-                    100L / totalTime,
-                    (user - mUserLast) * 100L / totalTime, (system - mSystemLast) * 100L / totalTime, (ioWait -
-                    mIoWaitLast) * 100L / totalTime);
-
+            CpuInfo cpuInfo = new CpuInfo((totalTime - idleTime) * 100.0 / totalTime, (appCpuTime - mAppCpuTimeLast) *
+                    100.0 / totalTime,
+                    (user - mUserLast) * 100.0 / totalTime, (system - mSystemLast) * 100.0 / totalTime, (ioWait -
+                    mIoWaitLast) * 100.0 / totalTime);
             synchronized (mCpuInfoEntries) {
                 mCpuInfoEntries.put(System.currentTimeMillis(), cpuInfo);
                 if (mCpuInfoEntries.size() > MAX_ENTRY_COUNT) {
+                    int overSize = mCpuInfoEntries.size() - MAX_ENTRY_COUNT;
+                    List<Long> willRemove = new ArrayList<>();
                     for (Map.Entry<Long, CpuInfo> entry : mCpuInfoEntries.entrySet()) {
-                        Long key = entry.getKey();
-                        mCpuInfoEntries.remove(key);
-                        break;
+                        willRemove.add(entry.getKey());
+                        if (willRemove.size() >= overSize) {
+                            break;
+                        }
+                    }
+                    for (Long removeKey : willRemove) {
+                        mCpuInfoEntries.remove(removeKey);
                     }
                 }
             }

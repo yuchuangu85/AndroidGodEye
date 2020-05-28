@@ -1,28 +1,15 @@
 package cn.hikyson.godeye.core.internal.modules.leakdetector;
 
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.app.Application;
-
-import java.io.File;
-import java.io.FilenameFilter;
-import java.util.List;
-
-import cn.hikyson.godeye.core.helper.PermissionRequest;
 import cn.hikyson.godeye.core.internal.Install;
 import cn.hikyson.godeye.core.internal.ProduceableSubject;
-import cn.hikyson.godeye.core.internal.modules.leakdetector.canary.android.CanaryLog;
-import cn.hikyson.godeye.core.internal.modules.leakdetector.canary.android.DefaultLeakDirectoryProvider;
-import cn.hikyson.godeye.core.internal.modules.leakdetector.canary.android.LeakCanary;
-import cn.hikyson.godeye.core.internal.modules.leakdetector.canary.android.LeakDirectoryProvider;
-import cn.hikyson.godeye.core.utils.FileUtil;
-import cn.hikyson.godeye.core.utils.L;
-import io.reactivex.functions.Consumer;
+import io.reactivex.subjects.ReplaySubject;
+import io.reactivex.subjects.Subject;
 
 /**
- * Created by kysonchao on 2017/11/23.
+ * @deprecated use {@link Leak } instead
  */
-public class LeakDetector extends ProduceableSubject<LeakQueue.LeakMemoryInfo> implements Install<LeakContext> {
+@Deprecated
+public class LeakDetector extends ProduceableSubject<LeakQueue.LeakMemoryInfo> implements Install<LeakConfig> {
 
     private LeakDetector() {
     }
@@ -32,77 +19,31 @@ public class LeakDetector extends ProduceableSubject<LeakQueue.LeakMemoryInfo> i
     }
 
     public static LeakDetector instance() {
-        return InstanceHolder.sINSTANCE;
+        return LeakDetector.InstanceHolder.sINSTANCE;
     }
 
-    public synchronized void install(Application application, final PermissionRequest permissionRequest) {
-        install(new LeakContextImpl2(application, permissionRequest));
-    }
-
-    public synchronized void install(Application application) {
-        install(new LeakContextImpl(application));
-    }
-
-    @SuppressLint("CheckResult")
     @Override
-    public synchronized void install(final LeakContext config) {
-        final Application application = config.application();
-        if (LeakCanary.isInAnalyzerProcess(application)) {
-            throw new IllegalStateException("can not call install leak");
-        }
-        config.permissionNeed(Manifest.permission.WRITE_EXTERNAL_STORAGE).subscribe(new Consumer<Boolean>() {
-            @Override
-            public void accept(Boolean aBoolean) throws Exception {
-                if (!aBoolean) {
-                    L.e("install leak need permission:" + Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                    return;
-                }
-                uninstall();
-                mLeakDirectoryProvider = new DefaultLeakDirectoryProvider(application);
-                try {
-                    clearLeaks();
-                } catch (FileUtil.FileException e) {
-                    L.e(e.getLocalizedMessage());
-                }
-                CanaryLog.setLogger(new CanaryLog.Logger() {
-                    @Override
-                    public void d(String s, Object... objects) {
-                        L.d(String.format(s, objects));
-                    }
-
-                    @Override
-                    public void d(Throwable throwable, String s, Object... objects) {
-                        L.e(String.format(s, objects) + "\n" + String.valueOf(throwable));
-                    }
-                });
-                LeakCanary.install(application);
-                L.d("LeakCanary installed");
-            }
-        });
+    public synchronized boolean install(LeakConfig config) {
+        return false;
     }
 
     @Override
     public synchronized void uninstall() {
-        mLeakDirectoryProvider = null;
-        LeakCanary.uninstall();
-        L.d("LeakCanary uninstalled");
     }
 
-    private LeakDirectoryProvider mLeakDirectoryProvider;
-
-    static LeakDirectoryProvider getLeakDirectoryProvider() {
-        return instance().mLeakDirectoryProvider;
+    @Override
+    public synchronized boolean isInstalled() {
+        return false;
     }
 
-    private void clearLeaks() throws FileUtil.FileException {
-        List<File> leakFiles = mLeakDirectoryProvider.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return true;
-            }
-        });
-        for (File f : leakFiles) {
-            FileUtil.deleteIfExists(f);
-        }
+    @Override
+    public LeakConfig config() {
+        return null;
+    }
+
+    @Override
+    protected Subject<LeakQueue.LeakMemoryInfo> createSubject() {
+        return ReplaySubject.create();
     }
 }
+

@@ -11,17 +11,24 @@ import com.koushikdutta.async.http.server.HttpServerRequestCallback;
 import java.util.ArrayList;
 import java.util.List;
 
-public class GodEyeMonitorServer {
+import cn.hikyson.godeye.core.utils.L;
+
+public class GodEyeMonitorServer implements Messager {
 
     private final int mPort;
     private AsyncHttpServer mServer;
-    private List<WebSocket> mWebSockets;
+    private final List<WebSocket> mWebSockets;
+    private final Object mLockForWebSockets = new Object();
     private MonitorServerCallback mMonitorServerCallback;
 
     /**
      * server的消息回调
      */
     public interface MonitorServerCallback {
+        void onClientAdded(List<WebSocket> webSockets, WebSocket added);
+
+        void onClientRemoved(List<WebSocket> webSockets, WebSocket removed);
+
         void onHttpRequest(AsyncHttpServerRequest request, AsyncHttpServerResponse response);
 
         void onWebSocketRequest(WebSocket webSocket, String messageFromClient);
@@ -30,26 +37,32 @@ public class GodEyeMonitorServer {
     public GodEyeMonitorServer(int port) {
         mPort = port;
         mServer = new AsyncHttpServer();
-        mWebSockets = new ArrayList<WebSocket>();
-        mServer.websocket("/refresh", new AsyncHttpServer.WebSocketRequestCallback() {
-            @Override
-            public void onConnected(final WebSocket webSocket, AsyncHttpServerRequest request) {
+        mWebSockets = new ArrayList<>();
+        mServer.websocket("/refresh", (webSocket, request) -> {
+            synchronized (mLockForWebSockets) {
                 mWebSockets.add(webSocket);
-                webSocket.setClosedCallback(new CompletedCallback() {
-                    @Override
-                    public void onCompleted(Exception ex) {
-                        mWebSockets.remove(webSocket);
-                    }
-                });
-                webSocket.setStringCallback(new WebSocket.StringCallback() {
-                    @Override
-                    public void onStringAvailable(String s) {
-                        if (mMonitorServerCallback != null) {
-                            mMonitorServerCallback.onWebSocketRequest(webSocket, s);
-                        }
-                    }
-                });
+                if (mMonitorServerCallback != null) {
+                    mMonitorServerCallback.onClientAdded(mWebSockets, webSocket);
+                }
+                L.d("connection build. current count:" + mWebSockets.size());
             }
+            webSocket.setClosedCallback(new CompletedCallback() {
+                @Override
+                public void onCompleted(Exception ex) {
+                    synchronized (mLockForWebSockets) {
+                        mWebSockets.remove(webSocket);
+                        if (mMonitorServerCallback != null) {
+                            mMonitorServerCallback.onClientRemoved(mWebSockets, webSocket);
+                        }
+                        L.d("connection released. current count:" + mWebSockets.size());
+                    }
+                }
+            });
+            webSocket.setStringCallback(s -> {
+                if (mMonitorServerCallback != null) {
+                    mMonitorServerCallback.onWebSocketRequest(webSocket, s);
+                }
+            });
         });
         mServer.get("/.*[(.html)|(.css)|(.js)|(.png)|(.jpg)|(.jpeg)|(.ico)]", new HttpServerRequestCallback() {
             @Override
@@ -74,9 +87,14 @@ public class GodEyeMonitorServer {
         AsyncServer.getDefault().stop();
     }
 
+    @Override
     public void sendMessage(String message) {
-        for (WebSocket socket : mWebSockets) {
-            socket.send(message);
+        Object[] wss = mWebSockets.toArray();
+        for (Object s : wss) {
+            WebSocket webSocket = (WebSocket) s;
+            if (webSocket.isOpen()) {
+                webSocket.send(message);
+            }
         }
     }
 }

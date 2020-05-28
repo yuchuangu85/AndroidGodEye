@@ -1,9 +1,9 @@
 import React, {Component} from 'react';
 import '../App.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap-theme.min.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import {Row, Col, Clearfix, Grid, Panel, Button, Modal} from 'react-bootstrap'
+
 import JSONPretty from '../../node_modules/react-json-pretty';
+
+import {Card, Modal, Button, List, Collapse} from 'antd'
 
 /**
  * Crash
@@ -12,74 +12,142 @@ class Crash extends Component {
 
     constructor(props) {
         super(props);
-        this.handleClose = this.handleClose.bind(this);
-        this.handleCrashDetailClick = this.handleCrashDetailClick.bind(this);
-        this.handleCrashDetailClick = this.handleCrashDetailClick.bind(this);
+        this.handleShowLastCrashInfoDetail = this.handleShowLastCrashInfoDetail.bind(this);
+        this.handleCloseLastCrashInfo = this.handleCloseLastCrashInfo.bind(this);
+        this.handleShowCrashList = this.handleShowCrashList.bind(this);
+        this.handleCloseCrashList = this.handleCloseCrashList.bind(this);
+        this.renderLastCrashInfoModal = this.renderLastCrashInfoModal.bind(this);
+        this.renderCrashInfoListModal = this.renderCrashInfoListModal.bind(this);
+        Crash.renderCrashList = Crash.renderCrashList.bind(this);
         this.state = {
-            crashInfo: {}
+            moreCrashInfos: [],
+            lastCrashInfo: {},
+            showLastCrashInfo: false,
+            showCrashList: false
         };
     }
 
-    refresh(crashInfo) {
-        this.setState({crashInfo});
+    refresh(crashInfos) {
+        const wrapCrashInfos = crashInfos;
+        if (wrapCrashInfos) {
+            for (let i = 0; i < wrapCrashInfos.length; i++) {
+                const extras = wrapCrashInfos[i].extras;
+                if (extras) {
+                    for (let key in extras) {
+                        wrapCrashInfos[i][key] = extras[key]
+                    }
+                    wrapCrashInfos[i].extras = null
+                }
+            }
+            const lastCrashInfo = wrapCrashInfos.shift();
+            this.setState({moreCrashInfos: wrapCrashInfos, lastCrashInfo: lastCrashInfo});
+        }
     }
 
-    handleCrashDetailClick(e) {
-        this.setState({show: true});
+    handleShowLastCrashInfoDetail() {
+        this.setState({showLastCrashInfo: true});
     }
 
-    handleClose() {
-        this.setState({show: false});
+    handleCloseLastCrashInfo() {
+        this.setState({showLastCrashInfo: false});
+    }
+
+    handleShowCrashList() {
+        this.setState({showCrashList: true});
+    }
+
+    handleCloseCrashList() {
+        this.setState({showCrashList: false});
+    }
+
+    static renderCrashList(moreCrashInfos) {
+        return (
+            <List
+                size="large"
+                bordered
+                dataSource={moreCrashInfos}
+                renderItem={item => <List.Item>
+                    {Crash.renderCrashDetailItem(item, false)}
+                </List.Item>}
+            />
+        );
+    }
+
+    static renderCrashDetailItem(crashInfo, expand) {
+        let renderItems = [];
+        let allKeys = [];
+        for (let crashInfoKey in crashInfo) {
+            if (crashInfoKey !== "crashTime" && crashInfoKey !== "crashMessage") {
+                renderItems.push(
+                    <Collapse.Panel header={crashInfoKey} key={crashInfoKey}>
+                        <JSONPretty id="json-pretty" json={crashInfo[crashInfoKey]}/>
+                    </Collapse.Panel>
+                );
+                allKeys.push(crashInfoKey);
+            }
+        }
+        return (
+            <div style={{width: "100%"}}>
+                <Collapse defaultActiveKey={expand ? ["1"] : []}>
+                    <Collapse.Panel
+                        header={"Time(崩溃时间):" + crashInfo["crashTime"] + "    ||    Message(异常信息):" + crashInfo["crashMessage"]}
+                        key={"1"}>
+                        <Collapse defaultActiveKey={"javaCrashStacktrace"}>
+                            {renderItems}
+                        </Collapse>
+                    </Collapse.Panel>
+                </Collapse>
+            </div>
+        );
+    }
+
+    renderLastCrashInfoModal() {
+        if (this.state.showLastCrashInfo) {
+            return (<Modal visible={this.state.showLastCrashInfo} onCancel={this.handleCloseLastCrashInfo}
+                           title="Crash Detail"
+                           closable={true}
+                           onOk={this.handleCloseLastCrashInfo} width={1000} footer={null}>
+                {Crash.renderCrashDetailItem(this.state.lastCrashInfo, true)}
+            </Modal>)
+        } else {
+            return <div/>
+        }
+    }
+
+    renderCrashInfoListModal(moreCrashInfos) {
+        if (this.state.showCrashList) {
+            return (<Modal visible={this.state.showCrashList} onCancel={this.handleCloseCrashList}
+                           title="Crash List"
+                           closable={true}
+                           onOk={this.handleCloseCrashList} width={1000} footer={null}>
+                {Crash.renderCrashList(moreCrashInfos)}
+            </Modal>)
+        } else {
+            return <div/>
+        }
     }
 
     render() {
-        let crashInfo = this.state.crashInfo;
+        let lastCrashInfo = this.state.lastCrashInfo;
+        let moreCrashInfos = this.state.moreCrashInfos;
         return (
-            <Panel style={{textAlign: "left"}}>
-                <Panel.Heading>
-                    <Row>
-                        <Col md={10}><h5>Last Crash Info</h5></Col>
-                        <Col md={2}
-                             style={{textAlign: 'right'}}><Button
-                            onClick={this.handleCrashDetailClick}>Detail</Button></Col>
-                    </Row>
-                </Panel.Heading>
-                <Panel.Body>
+            <Card title="Crash Info(崩溃记录)"
+                  extra={<div><Button onClick={this.handleShowLastCrashInfoDetail}>Show Detail</Button>
+                      &nbsp;&nbsp;
+                      <Button onClick={this.handleShowCrashList}>More Crashes</Button></div>}>
+                <div>
                     <p>
-                        <strong>Time:&nbsp;</strong>{crashInfo.timestampMillis ? new Date(crashInfo.timestampMillis).toLocaleTimeString() : "**"}
+                        Time(崩溃时间):&nbsp;
+                        <strong>{lastCrashInfo["crashTime"]}</strong>
                     </p>
                     <p style={{wordWrap: "break-word", wordBreak: "break-all"}}>
-                        <strong>Message:&nbsp;</strong>{crashInfo.throwableMessage ? crashInfo.throwableMessage : "**"}
+                        Message(异常信息):&nbsp;
+                        <strong>{lastCrashInfo["crashMessage"]}</strong>
                     </p>
-                    <p><strong>Stacktrace</strong></p>
-                    {this.renderStacktraceItem(crashInfo.throwableStacktrace)}
-                </Panel.Body>
-                <Modal show={this.state.show} onHide={this.handleClose}>
-                    <Modal.Header>
-                        <Modal.Title>Crash detail</Modal.Title>
-                    </Modal.Header>
-                    <Modal.Body>
-                        <JSONPretty id="json-pretty" json={this.state.crashInfo}/>
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button onClick={this.handleClose}>Close</Button>
-                    </Modal.Footer>
-                </Modal>
-            </Panel>);
-    }
-
-    renderStacktraceItem(throwableStacktraces) {
-        if (throwableStacktraces) {
-            let items = [];
-            for (let i = 0; i < throwableStacktraces.length; i++) {
-                items.push(
-                    <p style={{wordWrap: "break-word", wordBreak: "break-all", margin: 0}} key={"crash" + i}>
-                        <small>{throwableStacktraces[i]}</small>
-                    </p>
-                );
-            }
-            return items;
-        }
+                </div>
+                {this.renderLastCrashInfoModal()}
+                {this.renderCrashInfoListModal(moreCrashInfos)}
+            </Card>);
     }
 }
 

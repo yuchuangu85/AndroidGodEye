@@ -1,12 +1,13 @@
-import React, {Component} from 'react';
+/* eslint-disable react/prop-types */
+/* eslint-disable react/no-string-refs */
+import React, { Component } from 'react';
 import '../App.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap-theme.min.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import {Row, Col, Clearfix, Grid, Panel, Modal, Button} from 'react-bootstrap'
 
-import Highcharts from '../../node_modules/highcharts/highstock';
 import ReactHighcharts from '../../node_modules/react-highcharts'
 import JSONPretty from '../../node_modules/react-json-pretty';
+import ChangeBlockConfigFormInstance from "./changeBlockConfigForm.js"
+
+import { Card, Modal, Button, Popover } from 'antd'
 
 /**
  * Block
@@ -17,9 +18,16 @@ class Block extends Component {
         super(props);
         this.handleClose = this.handleClose.bind(this);
         this.handleClick = this.handleClick.bind(this);
+        this.changeLongBlockThreshold = this.changeLongBlockThreshold.bind(this);
+        this.changeShortBlockThreshold = this.changeShortBlockThreshold.bind(this);
+        this.resetBlockConfig = this.resetBlockConfig.bind(this);
         this.options = {
+            credits: {
+                enabled: false
+            },
             chart: {
-                type: 'column'
+                type: 'column',
+                height: 403
             },
             title: {
                 text: null
@@ -64,16 +72,18 @@ class Block extends Component {
         };
         this.state = {
             show: false,
-            blockInfo: {}
+            blockInfo: {},
+            blockConfig: {}
         };
+        this.index = 0;
     }
 
     handleClick(e) {
-        this.setState({blockInfo: e.point.blockInfo, show: true});
+        this.setState({ blockInfo: e.point.blockInfo, show: true });
     }
 
     handleClose() {
-        this.setState({show: false});
+        this.setState({ show: false });
     }
 
     static initSeries() {
@@ -87,42 +97,86 @@ class Block extends Component {
         return data;
     }
 
+    generateIndex() {
+        this.index = this.index + 1;
+        return this.index;
+    }
+
+    refreshConfig(blockConfig) {
+        this.setState({
+            blockConfig
+        })
+    }
+
     refresh(blockInfo) {
         if (blockInfo) {
-            let axisData = (new Date()).toLocaleTimeString();
+            let axisData = this.generateIndex() + (new Date()).toLocaleTimeString();
             this.refs.chart.getChart().series[0].addPoint({
                 name: axisData,
                 y: blockInfo.blockTime,
                 blockInfo: blockInfo
-            }, true, true, true);
+            }, false, true, true);
+            this.refs.chart.getChart().redraw(true);
         }
+    }
+
+    changeLongBlockThreshold(time) {
+        this.props.globalWs.sendMessage(`{"moduleName": "reinstallBlock","payload":{"longBlockThreshold":${time}}}`);
+    }
+
+    changeShortBlockThreshold(time) {
+        this.props.globalWs.sendMessage(`{"moduleName": "reinstallBlock","payload":{"shortBlockThreshold":${time}}}`);
+    }
+
+    resetBlockConfig() {
+        this.props.globalWs.sendMessage(`{"moduleName": "reinstallBlock","payload":{"type":"reset"}}`);
+    }
+
+    renderTitlebar() {
+        return (<div>
+            Block(Jank) Threshold&nbsp;
+            <Popover
+                content={
+                    <div>
+                        <ChangeBlockConfigFormInstance handleChange={this.changeLongBlockThreshold} />
+                    </div>
+                }
+                title="Change Threshold"
+                trigger="click"
+            >
+                <Button>Long:{this.state.blockConfig ? this.state.blockConfig.longBlockThresholdMillis : "**"}ms</Button>
+            </Popover>
+                &nbsp;
+            <Popover
+                content={
+                    <div>
+                        <ChangeBlockConfigFormInstance handleChange={this.changeShortBlockThreshold} />
+                    </div>
+                }
+                title="Change Threshold"
+                trigger="click"
+            >
+                <Button>Short:{this.state.blockConfig ? this.state.blockConfig.shortBlockThresholdMillis : "**"}ms</Button>
+            </Popover>
+                &nbsp;
+            <Button onClick={this.resetBlockConfig}>Reset(重置)</Button>
+        </div>
+        );
     }
 
     render() {
         return (
-            <Panel style={{textAlign: "left"}}>
-                <Panel.Heading>
-                    <h5>Block(卡顿)
-                    </h5>
-                </Panel.Heading>
-                <Panel.Body>
-                    <ReactHighcharts
-                        ref="chart"
-                        config={this.options}
-                    />
-                </Panel.Body>
-                <Modal show={this.state.show} onHide={this.handleClose}>
-                    <Modal.Header>
-                        <Modal.Title>Block detail</Modal.Title>
-                    </Modal.Header>
-                    <Modal.Body>
-                        <JSONPretty id="json-pretty" json={this.state.blockInfo.blockBaseinfo}/>
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button onClick={this.handleClose}>Close</Button>
-                    </Modal.Footer>
+            <Card title="Block(卡顿)" extra={this.renderTitlebar()}>
+                <ReactHighcharts
+                    ref="chart"
+                    config={this.options}
+                />
+                <Modal visible={this.state.show} onCancel={this.handleClose} title="Block detail" closable={true}
+                    onOk={this.handleClose} width={1000} footer={null}>
+                    <JSONPretty id="json-pretty"
+                        json={this.state.blockInfo.blockBaseinfo ? this.state.blockInfo.blockBaseinfo : "No detail found, maybe it is a short block."} />
                 </Modal>
-            </Panel>);
+            </Card>);
     }
 }
 

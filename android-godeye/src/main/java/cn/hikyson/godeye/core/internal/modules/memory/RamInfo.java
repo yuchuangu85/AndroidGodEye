@@ -1,9 +1,14 @@
 package cn.hikyson.godeye.core.internal.modules.memory;
 
+import androidx.annotation.Keep;
+
+import java.io.Serializable;
+
 /**
  * Created by kysonchao on 2017/11/22.
  */
-public class RamInfo {
+@Keep
+public class RamInfo implements Serializable {
     //可用RAM
     public long availMemKb;
     //手机总RAM
@@ -12,6 +17,16 @@ public class RamInfo {
     public long lowMemThresholdKb;
     //是否低内存状态运行
     public boolean isLowMemory;
+
+    public RamInfo(long availMemKb, long totalMemKb, long lowMemThresholdKb, boolean isLowMemory) {
+        this.availMemKb = availMemKb;
+        this.totalMemKb = totalMemKb;
+        this.lowMemThresholdKb = lowMemThresholdKb;
+        this.isLowMemory = isLowMemory;
+    }
+
+    public RamInfo() {
+    }
 
     @Override
     public String toString() {

@@ -1,11 +1,9 @@
+/* eslint-disable react/no-string-refs */
 import React, {Component} from 'react';
 import '../App.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap-theme.min.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import {Row, Col, Clearfix, Grid, Panel} from 'react-bootstrap'
 
-import Highcharts from '../../node_modules/highcharts/highstock';
 import ReactHighcharts from '../../node_modules/react-highcharts'
+import {Card} from 'antd'
 
 /**
  * PSS信息
@@ -16,22 +14,28 @@ class Pss extends Component {
         super(props);
         this.options = {
             chart: {
-                height: 200,
-                plotBackgroundColor: null,
-                plotBorderWidth: 0,
-                plotShadow: false,
-                margin: [0, 0, 0, 0]
+                height: 248,
+                spacing: [0, 0, 0, 0]
+            },
+            exporting: {
+                enabled: false
             },
             title: {
-                text: "Pss",
+                floating: true,
+                text: 'Pss',
                 align: 'center',
                 verticalAlign: 'middle',
-                y: 80
+                style: {
+                    fontSize: 13
+                }
+            },
+            credits: {
+                enabled: false
             },
             tooltip: {
                 formatter: function () {
-                    return '<div style="text-align:center"><span style="font-size:18px;color:' +
-                        ((Highcharts.theme && Highcharts.theme.contrastTextColor) || 'black') + '">' +
+                    return '<div style="text-align:center"><span style="font-size:13px;color:' +
+                        'black">' +
                         this.point.name + ":" +
                         (this.point.y / 1024).toFixed(2) + 'M,' +
                         this.point.percentage.toFixed(1) + "%"
@@ -41,28 +45,24 @@ class Pss extends Component {
             plotOptions: {
                 pie: {
                     dataLabels: {
-                        enabled: true,
-                        distance: -20,
+                        enabled: false,
                         format: '<b>{point.name}</b>',
                         style: {
-                            color: (Highcharts.theme && Highcharts.theme.contrastTextColor) || 'black'
+                            color: 'black'
                         }
                     },
-                    startAngle: -90,
-                    endAngle: 90,
-                    center: ['50%', '75%']
                 }
             },
             series: [{
                 type: 'pie',
                 name: 'pss',
-                innerSize: '70%',
+                innerSize: '90%',
                 data: []
             }]
         };
     }
 
-    createSeriresData(name, value) {
+    static createSeriresData(name, value) {
         return {
             name: name,
             y: value
@@ -73,12 +73,11 @@ class Pss extends Component {
         let datas = [];
         if (info) {
             let unknownPssKb = info.totalPssKb - info.dalvikPssKb - info.nativePssKb - info.otherPssKb;
-            datas.push(this.createSeriresData("dalvik", info.dalvikPssKb));
-            datas.push(this.createSeriresData("native", info.nativePssKb));
-            datas.push(this.createSeriresData("other", info.otherPssKb));
-            datas.push(this.createSeriresData("unknown", unknownPssKb));
-            let title = "Total:" + (info.totalPssKb / 1024).toFixed(2) + "M";
-            this.options.title.text = title;
+            datas.push(Pss.createSeriresData("dalvik", info.dalvikPssKb));
+            datas.push(Pss.createSeriresData("native", info.nativePssKb));
+            datas.push(Pss.createSeriresData("other", info.otherPssKb));
+            datas.push(Pss.createSeriresData("unknown", unknownPssKb));
+            this.options.title.text = "Pss(共享比例物理内存)<br/>" + (info.totalPssKb / 1024).toFixed(2) + "M";
         } else {
             this.options.title.text = "**";
         }
@@ -88,18 +87,12 @@ class Pss extends Component {
 
     render() {
         return (
-            <Panel style={{textAlign: "left"}}>
-                <Panel.Heading>
-                    <h5>Pss(共享比例物理内存)
-                    </h5>
-                </Panel.Heading>
-                <Panel.Body>
-                    <ReactHighcharts
-                        ref="chart"
-                        config={this.options}
-                    />
-                </Panel.Body>
-            </Panel>);
+            <Card>
+                <ReactHighcharts
+                    ref="chart"
+                    config={this.options}
+                />
+            </Card>);
     }
 }
 

@@ -7,13 +7,13 @@
     android:orientation="vertical"
     tools:context="cn.hikyson.android.godeye.sample.MainActivity">
 
-    <cn.hikyson.android.godeye.sample.LogView
+    <cn.hikyson.godeye.sample.LogView
         android:id="@+id/activity_main_logview"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:background="#505050">
-    </cn.hikyson.android.godeye.sample.LogView>
+    </cn.hikyson.godeye.sample.LogView>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -24,15 +24,15 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:paddingBottom="16dp"
             android:paddingLeft="16dp"
-            android:paddingRight="16dp">
+            android:paddingRight="16dp"
+            android:paddingBottom="16dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingBottom="5dp"
                 android:paddingTop="10dp"
+                android:paddingBottom="5dp"
                 android:text="Core"
                 android:textSize="25dp"/>
 
@@ -46,6 +46,12 @@
                     android:layout_height="match_parent"
                     android:orientation="horizontal"
                     android:padding="5dp">
+
+                    <CheckBox
+                        android:id="@+id/activity_main_methodcanary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="methodcanary"/>
 
                     <CheckBox
                         android:id="@+id/activity_main_cpu"
@@ -124,6 +130,18 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="pageload"/>
+
+                    <CheckBox
+                        android:id="@+id/activity_main_appsize"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="appsize"/>
+
+                    <CheckBox
+                        android:id="@+id/activity_main_view_canary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="viewcanary"/>
                 </LinearLayout>
 
             </HorizontalScrollView>
@@ -138,7 +156,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="All"
+                    android:text="SelectAll"
                     android:textSize="13dp"/>
 
                 <Button
@@ -146,24 +164,29 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="None"
+                    android:text="UnSelectAll"
                     android:textSize="13dp"/>
+            </LinearLayout>
 
-                <View
-                    android:layout_width="1px"
-                    android:layout_height="match_parent"
-                    android:layout_marginBottom="5dp"
-                    android:layout_marginLeft="8dp"
-                    android:layout_marginRight="8dp"
-                    android:layout_marginTop="5dp"
-                    android:background="#505050"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
                 <Button
                     android:id="@+id/activity_main_install"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
-                    android:text="Install"
+                    android:text="InstallSelected"
+                    android:textSize="13dp"/>
+
+                <Button
+                    android:id="@+id/activity_main_install_with_assets"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:text="InstallForAssets"
                     android:textSize="13dp"/>
 
                 <Button
@@ -174,13 +197,14 @@
                     android:text="UninstallAll"
                     android:textSize="13dp"/>
 
+
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingBottom="5dp"
                 android:paddingTop="10dp"
+                android:paddingBottom="5dp"
                 android:text="Monitor"
                 android:textSize="25dp"/>
 
@@ -212,8 +236,8 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingBottom="5dp"
                 android:paddingTop="10dp"
+                android:paddingBottom="5dp"
                 android:text="Consumers"
                 android:textSize="25dp"/>
 
@@ -221,6 +245,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/activity_main_consumer_methodcanary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="methodcanary"/>
 
                 <Button
                     android:id="@+id/activity_main_consumer_cpu"
@@ -339,7 +370,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="thread"/>
+                    android:text="thread" />
 
                 <Button
                     android:id="@+id/activity_main_consumer_deadlock"
@@ -356,6 +387,26 @@
                     android:text="pageload"/>
 
             </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/activity_main_consumer_appsize"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="appsize" />
+
+                <Button
+                    android:id="@+id/activity_main_consumer_view_canary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="view canary" />
+
+            </LinearLayout>
 
             <Button
                 android:id="@+id/activity_main_consumer_cancel_watch"
@@ -366,8 +417,8 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingBottom="5dp"
                 android:paddingTop="10dp"
+                android:paddingBottom="5dp"
                 android:text="Tools"
                 android:textSize="25dp"/>
 
@@ -397,6 +448,13 @@
                 android:orientation="horizontal">
 
                 <Button
+                    android:id="@+id/activity_main_make_invocations"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Invocations"/>
+
+                <Button
                     android:id="@+id/activity_main_make_request"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -409,6 +467,13 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="To Leak Activity"/>
+
+                <Button
+                    android:id="@+id/activity_main_make_leak_v4"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="To Leak V4 Activity"/>
             </LinearLayout>
 
             <LinearLayout
@@ -463,6 +528,13 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Log Clear"/>
+
+                <Button
+                    android:id="@+id/activity_main_test"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="test"/>
             </LinearLayout>
 
         </LinearLayout>

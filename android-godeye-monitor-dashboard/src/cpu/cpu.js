@@ -1,11 +1,10 @@
-import React, {Component} from 'react';
+/* eslint-disable react/no-string-refs */
+import React, { Component } from 'react';
 import '../App.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap-theme.min.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import {Row, Col, Clearfix, Grid, Panel} from 'react-bootstrap'
+import { Card } from 'antd'
 
-import Highcharts from '../../node_modules/highcharts/highstock';
 import ReactHighcharts from '../../node_modules/react-highcharts'
+import CpuInfo from "./cpu_info";
 
 /**
  * Cpu
@@ -16,10 +15,22 @@ class Cpu extends Component {
         super(props);
         this.options = {
             chart: {
-                type: 'area'
+                spacingLeft: 0,
+                spacingRight: 0,
+                height: 200,
+                type: "line"
+            },
+            exporting: {
+                enabled: false
+            },
+            legend: {
+                enabled: false
             },
             title: {
                 text: null
+            },
+            credits: {
+                enabled: false
             },
             tooltip: {
                 shared: true,
@@ -34,43 +45,47 @@ class Cpu extends Component {
                 }
             },
             xAxis: {
-                type: 'category'
+                type: 'category',
+                labels: {
+                    enabled: false
+                },
+                lineWidth: 0,
+                tickLength: 0,
+                gridLineWidth: 1
             },
             yAxis: {
-                title: {
-                    text: "Cpu Usage Rate(Percentage)",
-                    align: "middle",
-                },
                 min: 0,
-                max: 100
+                max: 100,
+                visible: false
+            },
+            plotOptions: {
+                line: {
+                    lineWidth: 2,
+                    marker: {
+                        enabled: false
+                    }
+                }
             },
             series: [
                 {
-                    name: 'Total',
-                    stack: 'cpu_total',
-                    stacking: 'normal',
+                    name: 'Device',
                     data: (Cpu.initSeries())
                 },
                 {
                     name: 'App',
-                    stack: 'cpu',
-                    stacking: 'normal',
                     data: (Cpu.initSeries())
                 },
                 {
                     name: 'UserProcess',
-                    stack: 'cpu',
-                    stacking: 'normal',
                     data: (Cpu.initSeries())
                 },
                 {
                     name: 'SystemProcess',
-                    stack: 'cpu',
-                    stacking: 'normal',
                     data: (Cpu.initSeries())
                 }
             ]
         };
+        this.index = 0;
     }
 
     static initSeries() {
@@ -84,30 +99,32 @@ class Cpu extends Component {
         return data;
     }
 
+    generateIndex() {
+        this.index = this.index + 1;
+        return this.index;
+    }
+
     refresh(cpuInfo) {
         if (cpuInfo) {
-            let axisData = (new Date()).toLocaleTimeString();
-            this.refs.chart.getChart().series[0].addPoint([axisData, cpuInfo.totalUseRatio * 100], true, true, true);
-            this.refs.chart.getChart().series[1].addPoint([axisData, cpuInfo.appCpuRatio * 100], true, true, true);
-            this.refs.chart.getChart().series[2].addPoint([axisData, cpuInfo.userCpuRatio * 100], true, true, true);
-            this.refs.chart.getChart().series[3].addPoint([axisData, cpuInfo.sysCpuRatio * 100], true, true, true);
+            let axisData = this.generateIndex() + (new Date()).toLocaleTimeString();
+            this.refs.chart.getChart().series[0].addPoint([axisData, cpuInfo.totalUseRatio * 100], false, true, true);
+            this.refs.chart.getChart().series[1].addPoint([axisData, cpuInfo.appCpuRatio * 100], false, true, true);
+            this.refs.chart.getChart().series[2].addPoint([axisData, cpuInfo.userCpuRatio * 100], false, true, true);
+            this.refs.chart.getChart().series[3].addPoint([axisData, cpuInfo.sysCpuRatio * 100], false, true, true);
+            this.refs.chart.getChart().redraw(true);
         }
+        this.refs.info.refresh(cpuInfo);
     }
 
     render() {
         return (
-            <Panel style={{textAlign: "left"}}>
-                <Panel.Heading>
-                    <h5>Cpu
-                    </h5>
-                </Panel.Heading>
-                <Panel.Body>
-                    <ReactHighcharts
-                        ref="chart"
-                        config={this.options}
-                    />
-                </Panel.Body>
-            </Panel>);
+            <Card title="CPU">
+                <CpuInfo ref="info" />
+                <ReactHighcharts
+                    ref="chart"
+                    config={this.options}
+                />
+            </Card>);
     }
 }
 

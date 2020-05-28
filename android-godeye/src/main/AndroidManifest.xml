@@ -1,28 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="cn.hikyson.godeye.core">
+    package="cn.hikyson.godeye.core">
 
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <application>
-        <receiver
-            android:name=".internal.modules.leakdetector.LeakOutputReceiver"
+        <provider
+            android:name=".GodEyeInitContentProvider"
+            android:authorities="${applicationId}.cn.hikyson.godeye.core.init"
             android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.ctrip.ibu.leakcanary.output.start"/>
-                <action android:name="com.ctrip.ibu.leakcanary.output.progress"/>
-                <action android:name="com.ctrip.ibu.leakcanary.output.retry"/>
-                <action android:name="com.ctrip.ibu.leakcanary.output.done"/>
-            </intent-filter>
-        </receiver>
+            android:exported="false" />
 
         <service
-            android:name=".internal.modules.leakdetector.canary.android.internal.HeapAnalyzerService"
-            android:enabled="false"
-            android:process=":leakcanary"
-            />
-        <service
-            android:name=".internal.modules.leakdetector.canary.android.output.OutputLeakService"
-            android:enabled="false"
-            android:process=":leakcanary"/>
+            android:name=".internal.notification.LocalNotificationListenerService"
+            android:enabled="true"
+            android:exported="false" />
+
     </application>
+
 </manifest>

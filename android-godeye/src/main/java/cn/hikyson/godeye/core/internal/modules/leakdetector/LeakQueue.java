@@ -1,9 +1,11 @@
 package cn.hikyson.godeye.core.internal.modules.leakdetector;
 
-import android.support.annotation.IntDef;
-import android.support.annotation.NonNull;
-import android.support.annotation.StringDef;
-import android.support.v4.util.ArrayMap;
+import androidx.annotation.IntDef;
+import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringDef;
+import androidx.collection.ArrayMap;
 
 import java.io.Serializable;
 import java.lang.annotation.Retention;
@@ -16,11 +18,16 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Created by kysonchao on 2017/11/23.
+ * @deprecated use {@link Leak } instead
  */
-public class LeakQueue {
+@Deprecated
+public class LeakQueue{
 
-
+    /**
+     * @deprecated use {@link Leak } instead
+     */
+    @Deprecated
+    @Keep
     public static class LeakMemoryInfo implements Serializable, Comparable<LeakMemoryInfo> {
         public static final SimpleDateFormat DF = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.US);
 
@@ -37,16 +44,19 @@ public class LeakQueue {
         }
 
         @Retention(RetentionPolicy.SOURCE)
-        @IntDef({Status.STATUS_INVALID, Status.STATUS_START, Status.STATUS_PROGRESS, Status.STATUS_RETRY, Status.STATUS_DONE})
+        @IntDef({Status.STATUS_INVALID, Status.STATUS_DETECT, Status.STATUS_START, Status.STATUS_PROGRESS, Status.STATUS_RETRY, Status.STATUS_DONE})
         public @interface Status {
             public static final int STATUS_INVALID = -1;
-            public static final int STATUS_START = 0;
-            public static final int STATUS_PROGRESS = 1;
-            public static final int STATUS_RETRY = 2;
-            public static final int STATUS_DONE = 3;
+            public static final int STATUS_DETECT = 0;
+            public static final int STATUS_START = 1;
+            public static final int STATUS_PROGRESS = 2;
+            public static final int STATUS_RETRY = 3;
+            public static final int STATUS_DONE = 4;
         }
 
         public String referenceKey = "";
+        @Nullable
+        public LeakRefInfo leakRefInfo = null;
         public String leakTime = "";
         public String statusSummary = "";
         public @Status
@@ -79,6 +89,7 @@ public class LeakQueue {
         public String toString() {
             return "LeakMemoryInfo{" +
                     "referenceKey='" + referenceKey + '\'' +
+                    ", leakRefInfo='" + leakRefInfo + '\'' +
                     ", leakTime='" + leakTime + '\'' +
                     ", statusSummary='" + statusSummary + '\'' +
                     ", status=" + status +
@@ -118,35 +129,6 @@ public class LeakQueue {
 
     public static LeakQueue instance() {
         return InstanceHolder.sINSTANCE;
-    }
-
-
-    public synchronized void createOrUpdateIfExsist(String refKey, Map<String, Object> map) {
-        Map<String, Object> curMap = mLeakMemoryInfoArrayMap.get(refKey);
-        if (curMap == null) {
-            curMap = new ArrayMap<>();
-        }
-        curMap.putAll(map);
-        mLeakMemoryInfoArrayMap.put(refKey, curMap);
-    }
-
-    public synchronized LeakMemoryInfo generateLeakMemoryInfo(String refKey) {
-        LeakMemoryInfo leakMemoryInfo = new LeakMemoryInfo(refKey);
-        Map<String, Object> detailMap = mLeakMemoryInfoArrayMap.get(refKey);
-        leakMemoryInfo.referenceKey = refKey;
-        Object leakTimeObj = detailMap.get(LeakMemoryInfo.Fields.LEAK_TIME);
-        leakMemoryInfo.leakTime = leakTimeObj == null ? "" : String.valueOf(leakTimeObj);
-        Object statusSummaryObj = detailMap.get(LeakMemoryInfo.Fields.STATUS_SUMMARY);
-        leakMemoryInfo.statusSummary = statusSummaryObj == null ? "" : String.valueOf(statusSummaryObj);
-        Object statusObj = detailMap.get(LeakMemoryInfo.Fields.STATUS);
-        leakMemoryInfo.status = statusObj == null ? LeakMemoryInfo.Status.STATUS_INVALID : (int) statusObj;
-        Object leakObjName = detailMap.get(LeakMemoryInfo.Fields.LEAK_OBJ_NAME);
-        leakMemoryInfo.leakObjectName = leakObjName == null ? "" : String.valueOf(leakObjName);
-        Object pathToRoot = detailMap.get(LeakMemoryInfo.Fields.PATH_TO_ROOT);
-        leakMemoryInfo.pathToGcRoot = pathToRoot == null ? new ArrayList<String>() : (List) pathToRoot;
-        Object leakMemoryBytes = detailMap.get(LeakMemoryInfo.Fields.LEAK_MEMORY_BYTES);
-        leakMemoryInfo.leakMemoryBytes = leakMemoryBytes == null ? 0L : (long) leakMemoryBytes;
-        return leakMemoryInfo;
     }
 
 }

@@ -37,7 +37,7 @@ public class LooperMonitor implements Printer {
                           long shortBlockThresholdMillis);
     }
 
-    public LooperMonitor(BlockListener blockListener, long longBlockThresholdMillis, long shortBlockThresholdMillis) {
+    LooperMonitor(BlockListener blockListener, long longBlockThresholdMillis, long shortBlockThresholdMillis) {
         if (blockListener == null) {
             throw new IllegalArgumentException("blockListener should not be null.");
         }

@@ -1,12 +1,11 @@
 package cn.hikyson.godeye.core.internal.modules.memory;
 
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import cn.hikyson.godeye.core.internal.Engine;
 import cn.hikyson.godeye.core.internal.Producer;
+import cn.hikyson.godeye.core.utils.ThreadUtil;
 import io.reactivex.Observable;
-import io.reactivex.ObservableSource;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
@@ -19,7 +18,7 @@ public class HeapEngine implements Engine {
     private long mIntervalMillis;
     private CompositeDisposable mCompositeDisposable;
 
-    public HeapEngine(Producer<HeapInfo> producer, long intervalMillis) {
+    HeapEngine(Producer<HeapInfo> producer, long intervalMillis) {
         mProducer = producer;
         mIntervalMillis = intervalMillis;
         mCompositeDisposable = new CompositeDisposable();
@@ -27,31 +26,25 @@ public class HeapEngine implements Engine {
 
     @Override
     public void work() {
-        mCompositeDisposable.add(Observable.interval(mIntervalMillis, TimeUnit.MILLISECONDS).
-                concatMap(new Function<Long, ObservableSource<HeapInfo>>() {
-                    @Override
-                    public ObservableSource<HeapInfo> apply(Long aLong) throws Exception {
-                        return create();
-                    }
-                }).subscribe(new Consumer<HeapInfo>() {
+        mCompositeDisposable.add(Observable.interval(mIntervalMillis, TimeUnit.MILLISECONDS).map(new Function<Long, HeapInfo>() {
             @Override
-            public void accept(HeapInfo food) throws Exception {
-                mProducer.produce(food);
+            public HeapInfo apply(Long aLong) throws Exception {
+                ThreadUtil.ensureWorkThread("HeapEngine apply");
+                return MemoryUtil.getAppHeapInfo();
             }
-        }));
+        }).subscribeOn(ThreadUtil.computationScheduler())
+                .observeOn(ThreadUtil.computationScheduler())
+                .subscribe(new Consumer<HeapInfo>() {
+                    @Override
+                    public void accept(HeapInfo food) throws Exception {
+                        ThreadUtil.ensureWorkThread("HeapEngine accept");
+                        mProducer.produce(food);
+                    }
+                }));
     }
 
     @Override
     public void shutdown() {
         mCompositeDisposable.dispose();
-    }
-
-    private Observable<HeapInfo> create() {
-        return Observable.fromCallable(new Callable<HeapInfo>() {
-            @Override
-            public HeapInfo call() throws Exception {
-                return MemoryUtil.getAppHeapInfo();
-            }
-        });
     }
 }

@@ -3,15 +3,13 @@ package cn.hikyson.godeye.core.internal.modules.sm.core;
 import android.content.Context;
 import android.os.Looper;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 
+import cn.hikyson.godeye.core.helper.AndroidDebug;
 import cn.hikyson.godeye.core.internal.modules.cpu.CpuInfo;
 import cn.hikyson.godeye.core.internal.modules.memory.MemoryUtil;
-import io.reactivex.Observable;
-import io.reactivex.functions.Consumer;
+import cn.hikyson.godeye.core.utils.ThreadUtil;
 
 public final class SmCore {
 
@@ -19,17 +17,17 @@ public final class SmCore {
     private LooperMonitor mMonitor;
     private StackSampler stackSampler;
     private CpuSampler cpuSampler;
-    private SmConfig mSmConfig;
 
-    private List<BlockInterceptor> mInterceptorChain = new LinkedList<>();
+    private BlockListener mBlockListener;
 
+    private long mLongBlockThresholdMillis;
 
-    public SmCore(final Context context, SmConfig smConfig) {
+    public SmCore(final Context context, long longBlockThresholdMillis, long shortBlockThresholdMillis, long dumpIntervalMillis) {
         this.mContext = context;
-        this.mSmConfig = smConfig;
+        this.mLongBlockThresholdMillis = longBlockThresholdMillis;
         this.stackSampler = new StackSampler(
-                Looper.getMainLooper().getThread(), this.mSmConfig.dumpInterval);
-        this.cpuSampler = new CpuSampler(this.mSmConfig.dumpInterval);
+                Looper.getMainLooper().getThread(), dumpIntervalMillis, getSampleDelay());
+        this.cpuSampler = new CpuSampler(dumpIntervalMillis, getSampleDelay());
         this.mMonitor = new LooperMonitor(new LooperMonitor.BlockListener() {
 
             @Override
@@ -44,43 +42,33 @@ public final class SmCore {
 
             @Override
             public void onBlockEvent(final long blockTimeMillis, final long threadBlockTimeMillis, final boolean longBlock, final long eventStartTimeMilliis, final long eventEndTimeMillis, long longBlockThresholdMillis, long shortBlockThresholdMillis) {
-                HandlerThreadFactory.getObtainDumpThreadHandler().post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!longBlock) {//短卡顿
-                            if (!mInterceptorChain.isEmpty()) {
-                                for (BlockInterceptor interceptor : mInterceptorChain) {
-                                    interceptor.onShortBlock(context, blockTimeMillis);
-                                }
-                            }
-                            return;
-                        }
+                ThreadUtil.computationScheduler().scheduleDirect(() -> {
+                    if (AndroidDebug.isDebugging()) {// if debugging, then ignore
+                        return;
+                    }
+                    if (longBlock) {
                         //如果是长卡顿，那么需要记录很多信息
                         final boolean cpuBusy = cpuSampler.isCpuBusy(eventStartTimeMilliis, eventEndTimeMillis);
                         //这里短卡顿基本是dump不到数据的，因为dump延时一般都会比短卡顿时间久
                         final List<CpuInfo> cpuInfos = cpuSampler.getCpuRateInfo(eventStartTimeMilliis, eventEndTimeMillis);
                         final Map<Long, List<StackTraceElement>> threadStackEntries = stackSampler.getThreadStackEntries(eventStartTimeMilliis, eventEndTimeMillis);
-                        Observable.fromCallable(new Callable<MemoryInfo>() {
-                            @Override
-                            public MemoryInfo call() throws Exception {
-                                return new MemoryInfo(MemoryUtil.getAppHeapInfo(), MemoryUtil.getAppPssInfo(mContext), MemoryUtil.getRamInfo(mContext));
-                            }
-                        }).subscribe(new Consumer<MemoryInfo>() {
-                            @Override
-                            public void accept(MemoryInfo memoryInfo) throws Exception {
-                                LongBlockInfo blockBaseinfo = LongBlockInfo.create(eventStartTimeMilliis, eventEndTimeMillis, threadBlockTimeMillis,
-                                        blockTimeMillis, cpuBusy, cpuInfos, threadStackEntries, memoryInfo);
-                                if (!mInterceptorChain.isEmpty()) {
-                                    for (BlockInterceptor interceptor : mInterceptorChain) {
-                                        interceptor.onLongBlock(context, blockBaseinfo);
-                                    }
-                                }
-                            }
-                        });
+                        final MemoryInfo memoryInfo = new MemoryInfo(MemoryUtil.getAppHeapInfo(), MemoryUtil.getAppPssInfo(mContext), MemoryUtil.getRamInfo(mContext));
+                        LongBlockInfo blockBaseinfo = new LongBlockInfo(eventStartTimeMilliis, eventEndTimeMillis, threadBlockTimeMillis,
+                                blockTimeMillis, cpuBusy, cpuInfos, threadStackEntries, memoryInfo);
+                        if (mBlockListener != null) {
+                            mBlockListener.onLongBlock(context, blockBaseinfo);
+                        }
+                    } else {
+                        final MemoryInfo memoryInfo = new MemoryInfo(MemoryUtil.getAppHeapInfo(), MemoryUtil.getAppPssInfo(mContext), MemoryUtil.getRamInfo(mContext));
+                        ShortBlockInfo shortBlockInfo = new ShortBlockInfo(eventStartTimeMilliis, eventEndTimeMillis, threadBlockTimeMillis,
+                                blockTimeMillis, memoryInfo);
+                        if (mBlockListener != null) {
+                            mBlockListener.onShortBlock(context, shortBlockInfo);
+                        }
                     }
                 });
             }
-        }, this.mSmConfig.longBlockThreshold, this.mSmConfig.shortBlockThreshold);
+        }, longBlockThresholdMillis, shortBlockThresholdMillis);
     }
 
     private void startDump() {
@@ -101,36 +89,33 @@ public final class SmCore {
         }
     }
 
-    public void addBlockInterceptor(BlockInterceptor blockInterceptor) {
-        mInterceptorChain.add(blockInterceptor);
+    public void setBlockListener(BlockListener blockListener) {
+        mBlockListener = blockListener;
     }
 
     public void install() {
+        ThreadUtil.createIfNotExistHandler(AbstractSampler.SM_DO_DUMP);
         Looper.getMainLooper().setMessageLogging(mMonitor);
     }
 
     public void uninstall() {
         Looper.getMainLooper().setMessageLogging(null);
         stopDump();
+        ThreadUtil.destoryHandler(AbstractSampler.SM_DO_DUMP);
     }
 
     /**
      * 获取dump信息的延时时间
-     * 认为1秒是长卡顿，那么延时0.8s开始dump信息
+     * 认为1秒是长卡顿，那么延时0.9s开始dump信息
      * 换句话说，短卡顿是dump不到信息的
      *
      * @return
      */
-    public long getSampleDelay() {
-        return (long) (this.mSmConfig.longBlockThreshold * 0.8f);
+    private long getSampleDelay() {
+        return (long) (this.mLongBlockThresholdMillis * 0.9f);
     }
 
     public Context getContext() {
         return mContext;
     }
-
-    public SmConfig getSmConfig() {
-        return mSmConfig;
-    }
-
 }

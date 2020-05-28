@@ -1,16 +1,20 @@
-import React, {Component} from 'react';
+/* eslint-disable react/no-string-refs */
+import React, { Component } from 'react';
 import './App.css';
+import { Row, Col, Layout } from 'antd'
+import 'antd/dist/antd.css';
 import AppInfo from "./appinfo/appInfo";
-import {Row, Col, Grid} from 'react-bootstrap'
 import globalWs from './communication/websocket'
 import BatteryInfo from "./batteryinfo/batteryInfo";
 import Startup from "./startup/startup";
+import AppSize from "./appSizeInfo/appsize";
 import Ram from "./ram/ram";
 import Pss from "./pss/pss";
 import Fps from "./fps/fps";
 import Cpu from "./cpu/cpu";
 import Heap from "./heap/heap";
 import Pageload from "./pageload/pageload";
+import ViewCanary from "./viewcanary/viewcanary";
 import Traffic from "./traffic/traffic";
 import Crash from "./crash/crash";
 import Block from "./block/block";
@@ -18,86 +22,81 @@ import Network from "./network/network";
 import Thread from "./thread/thread";
 import MemoryLeak from "./memoryleak/memoryLeak";
 import RefreshStatus from "./refreshstatus/refreshStatus";
+import MethodCanary from "./methodcanary/methodcanary";
+import ImageCanary from "./imagecanary/imagecanary";
+import NotificationContainer from "./notification/notification_container";
+import Mock from "./MockData";
+
 
 class App extends Component {
 
     constructor(props) {
         super(props);
         this._onReceiveMessage = this._onReceiveMessage.bind(this);
-        this.refreshMock = this.refreshMock.bind(this);
         this._setCanRefresh = this._setCanRefresh.bind(this);
+        this._getModuleRef = this._getModuleRef.bind(this);
         this.canRefresh = true;
+        this.mock = new Mock();
     }
 
     componentDidMount() {
         globalWs.setReceiveMessageCallback(this._onReceiveMessage);
+        this.onWsOpenCallback = () => {
+            globalWs.sendMessage('{"moduleName": "clientOnline"}')
+        };
+        globalWs.registerCallback(this.onWsOpenCallback);
         globalWs.start();
-        // setInterval(this.refreshMock, 2000);
+        // this.mock.start(this._onReceiveMessage);
+    }
+
+    componentWillUnmount() {
+        globalWs.unregisterCallback(this.onWsOpenCallback)
+    }
+
+    _getModuleRef(moduleName) {
+        const moduleMap = {
+            "appInfo": this.refs.appInfo,
+            "startupInfo": this.refs.startupInfo,
+            "fpsInfo": this.refs.fpsInfo,
+            "cpuInfo": this.refs.cpuInfo,
+            "heapInfo": this.refs.heapInfo,
+            "batteryInfo": this.refs.batteryInfo,
+            "ramInfo": this.refs.ramInfo,
+            "pssInfo": this.refs.pssInfo,
+            "pageLifecycle": this.refs.pageLifecycle,
+            "trafficInfo": this.refs.trafficInfo,
+            "crashInfo": this.refs.crashInfo,
+            "blockInfo": this.refs.blockInfo,
+            "networkInfo": this.refs.networkInfo,
+            "threadInfo": this.refs.threadInfo,
+            "leakInfo": this.refs.leakInfo,
+            "methodCanary": this.refs.methodCanary,
+            "appSizeInfo": this.refs.appSizeInfo,
+            "viewIssueInfo": this.refs.viewIssueInfo,
+            "imageIssue": this.refs.imageIssue
+        };
+        return moduleMap[moduleName];
     }
 
     _onReceiveMessage(moduleName, payload) {
         if (!this.canRefresh) {
             return;
         }
-        if ("appInfo" === moduleName) {
-            this.refs.appInfo.refresh(payload);
-            return;
-        }
-        if ("startupInfo" === moduleName) {
-            this.refs.startupInfo.refresh(payload);
-            return;
-        }
-        if ("fpsInfo" === moduleName) {
-            this.refs.fpsInfo.refresh(payload);
-            return;
-        }
-        if ("cpuInfo" === moduleName) {
-            this.refs.cpuInfo.refresh(payload);
-            return;
-        }
-        if ("heapInfo" === moduleName) {
-            this.refs.heapInfo.refresh(payload);
-            return;
-        }
-        if ("batteryInfo" === moduleName) {
-            this.refs.batteryInfo.refresh(payload);
-            return;
-        }
-        if ("ramInfo" === moduleName) {
-            this.refs.ramInfo.refresh(payload);
-            return;
-        }
-        if ("pssInfo" === moduleName) {
-            this.refs.pssInfo.refresh(payload);
-            return;
-        }
-        if ("pageloadInfo" === moduleName) {
-            this.refs.pageloadInfo.refresh(payload);
-            return;
-        }
-        if ("trafficInfo" === moduleName) {
-            this.refs.trafficInfo.refresh(payload);
-            return;
-        }
-        if ("crashInfo" === moduleName) {
-            this.refs.crashInfo.refresh(payload);
-            return;
-        }
-        if ("blockInfo" === moduleName) {
-            this.refs.blockInfo.refresh(payload);
-            return;
-        }
-        if ("networkInfo" === moduleName) {
-            this.refs.networkInfo.refresh(payload);
-            return;
-        }
-        if ("threadInfo" === moduleName) {
-            this.refs.threadInfo.refresh(payload);
-            return;
-        }
-        if ("leakInfo" === moduleName) {
-            this.refs.leakInfo.refresh(payload);
-            return;
+        this.refs.refreshStatus.refresh(new Date());
+        if ("installedModuleConfigs" === moduleName) {
+            this.refs.methodCanary.refreshConfig(payload["METHOD_CANARY"]);
+            this.refs.blockInfo.refreshConfig(payload["SM"]);
+        } else if ("methodCanaryMonitorState" === moduleName) {
+            this.refs.methodCanary.refreshStatus(payload);
+        } else if ("blockConfig" === moduleName) {
+            this.refs.blockInfo.refreshConfig(payload);
+        } else if ("AndroidGodEyeNotification" === moduleName
+            || "AndroidGodEyeNotificationAction" === moduleName) {
+            this.refs.notification.refresh(moduleName, payload)
+        } else {
+            if (this._getModuleRef(moduleName)) {
+                this._getModuleRef(moduleName).refresh(payload);
+            }
         }
     }
 
@@ -107,176 +106,85 @@ class App extends Component {
 
     render() {
         return (
-
-            <div className="App">
-                <Grid>
-                    <Row style={{marginBottom: 30}}>
-                        <Col md={12}><AppInfo ref="appInfo"/></Col>
-                    </Row>
-                    <Row>
-                        <Col md={12}>
-                            <RefreshStatus setCanRefresh={this._setCanRefresh}/>
+            <Layout>
+                <Layout.Content style={{ marginLeft: 16, marginRight: 16 }}>
+                    <Row align="top" style={{ backgroundColor: '#93c756', marginLeft: -16, marginRight: -16 }}>
+                        <Col span={24}>
+                            <AppInfo ref="appInfo" globalWs={globalWs} />
                         </Col>
                     </Row>
-                    <Row>
-                        <Col md={9}> <Startup ref="startupInfo"/>
-                        </Col>
-                        <Col md={3}> <Fps ref="fpsInfo"/>
-                        </Col>
-                    </Row>
-                    <Row>
-                        <Col md={4}> <Ram ref="ramInfo"/>
-                        </Col>
-                        <Col md={4}> <Pss ref="pssInfo"/>
-                        </Col>
-                        <Col md={4}> <BatteryInfo ref="batteryInfo"/>
+                    <Row gutter={16} align="top" style={{ textAlign: 'right', marginTop: 16 }}>
+                        <Col span={24}>
+                            <RefreshStatus ref="refreshStatus" setCanRefresh={this._setCanRefresh} />
                         </Col>
                     </Row>
-                    <Row>
-                        <Col md={6}> <Cpu ref="cpuInfo"/>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col span={24}>
+                            <MethodCanary ref="methodCanary" globalWs={globalWs} />
                         </Col>
-                        <Col md={6}> <Heap ref="heapInfo"/>
+                    </Row>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }} type="flex" justify="start">
+                        <Col md={24} lg={12} xl={6}>
+                            <Fps ref="fpsInfo" />
+                        </Col>
+                        <Col md={24} lg={12} xl={6}>
+                            <BatteryInfo ref="batteryInfo" />
+                        </Col>
+                        <Col md={24} lg={12} xl={6}>
+                            <Ram ref="ramInfo" />
+                        </Col>
+                        <Col md={24} lg={12} xl={6}>
+                            <Pss ref="pssInfo" />
                         </Col>
                     </Row>
-                    <Row>
-                        <Col md={6}><Traffic ref="trafficInfo"/></Col>
-                        <Col md={6}><Crash ref="crashInfo"/></Col>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col lg={24} xl={7}>
+                            <Startup ref="startupInfo" />
+                        </Col>
+                        <Col lg={24} xl={9}>
+                            <AppSize ref="appSizeInfo" />
+                        </Col>
+                        <Col lg={24} xl={8}>
+                            <Crash ref="crashInfo" />
+                        </Col>
                     </Row>
-                    <Row>
-                        <Col md={12}><Pageload ref="pageloadInfo"/></Col>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col lg={24} xl={7}> <Cpu ref="cpuInfo" />
+                        </Col>
+                        <Col lg={24} xl={7}> <Heap ref="heapInfo" />
+                        </Col>
+                        <Col lg={24} xl={10}><Traffic ref="trafficInfo" /></Col>
                     </Row>
-                    <Row>
-                        <Col md={6}><Block ref="blockInfo"/></Col>
-                        <Col md={6}><Network ref="networkInfo"/></Col>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col lg={24} xl={12}><MemoryLeak ref="leakInfo" /></Col>
+                        <Col lg={24} xl={12}><Block ref="blockInfo" globalWs={globalWs} /></Col>
                     </Row>
-                    <Row>
-                        <Col md={12}><Thread ref="threadInfo"/></Col>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col lg={24} xl={12}><ViewCanary globalWs={globalWs} ref="viewIssueInfo" /></Col>
+                        <Col lg={24} xl={12}><ImageCanary ref="imageIssue" /></Col>
                     </Row>
-                    <Row>
-                        <Col md={12}><MemoryLeak ref="leakInfo"/></Col>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col span={24}><Pageload ref="pageLifecycle" /></Col>
                     </Row>
-                </Grid>
-            </div>
-
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col span={24}><Thread ref="threadInfo" /></Col>
+                    </Row>
+                    <Row gutter={16} align="top" style={{ marginTop: 16 }}>
+                        <Col span={24}><Network ref="networkInfo" /></Col>
+                    </Row>
+                </Layout.Content>
+                <Layout.Footer style={{ textAlign: "center" }}>
+                    <Col span={16} offset={4} style={{ textAlign: "center" }}>
+                        <span>Powered by <a href="https://github.com/Kyson/AndroidGodEye"
+                            target="_blank" rel="noopener noreferrer">AndroidGodEye</a></span>
+                    </Col>
+                    <Col span={4}>
+                        <NotificationContainer ref="notification" />
+                    </Col>
+                </Layout.Footer>
+            </Layout>
         );
     }
-
-    refreshMock() {
-        this._onReceiveMessage("appInfo", {
-            appName: "I am Name",
-            labels: ["label1", "label2", "label3"]
-        });
-        this._onReceiveMessage("startupInfo", {
-            startupType: "cold",
-            startupTime: 1003
-        });
-        this._onReceiveMessage("batteryInfo", {
-            level: 24,
-            status: "ok",
-            plugged: "plugged",
-            present: "present",
-            health: "health",
-            voltage: "voltage",
-            temperature: "temperature",
-            technology: "technology",
-            scale: 100,
-        });
-        this._onReceiveMessage("cpuInfo", {
-            totalUseRatio: 0.56,
-            appCpuRatio: 0.12,
-            userCpuRatio: 0.23,
-            sysCpuRatio: 0.09
-        });
-        this._onReceiveMessage("heapInfo", {
-            freeMemKb: 1024 * 520,
-            allocatedKb: 1024 * 1520,
-            maxMemKb: 1024 * 6000
-        });
-        this._onReceiveMessage("ramInfo", {
-            totalMemKb: 1024 * 1024 * 3,
-            availMemKb: 1024 * 1024 * 1.5
-        });
-        this._onReceiveMessage("pssInfo", {
-            totalPssKb: 1024 * 300,
-            dalvikPssKb: 1024 * 125,
-            nativePssKb: 1024 * 200,
-            otherPssKb: 1024 * 7,
-        });
-        this._onReceiveMessage("fpsInfo", {
-            currentFps: "12",
-            systemFps: "34"
-        });
-        this._onReceiveMessage("pageloadInfo", {
-            pageId: "11",
-            pageName: "ActivityA",
-            pageStatus: "created",
-            pageStatusTime: "2018-03-00",
-            loadTimeInfo: {
-                createTime: 100,
-                didDrawTime: 120,
-                loadTime: 150
-            }
-        });
-        this._onReceiveMessage("crashInfo", {
-            timestampMillis: new Date().getMilliseconds(),
-            throwableMessage: "throwableMessagethrowableMessagethrowableMessagethrowableMessagethrowableMessagethrowableMessagethrowableMessage",
-            throwableStacktrace: ["1111", "1111", "1111", "1111", "1111", "1111", "1111", "1111", "1111", "1111"]
-        });
-        this._onReceiveMessage("blockInfo", {
-            blockTime: 123,
-            blockBaseinfo: {df: "sdf", vvv: "1312", bb: ["fewefwf", "fwewfe"]}
-        });
-        this._onReceiveMessage("networkInfo", {
-            url: "http://www.baidu.com",
-            endTimeMillis: 123,
-            startTimeMillis: 120
-        });
-        this._onReceiveMessage("trafficInfo", {
-            rxTotalRate: 56,
-            txTotalRate: 48,
-            rxUidRate: 34,
-            txUidRate: 42
-        });
-        this._onReceiveMessage("leakInfo", {
-            referenceKey: "referenceKey",
-            leakTime: "leakTime",
-            leakObjectName: "leakObjectName",
-            statusSummary: "statusSummary",
-            pathToGcRoot: ["leakStack", "leakStack", "leakStack", "leakStack", "leakStack"]
-        });
-        this._onReceiveMessage("threadInfo", [
-            {
-                id: 1,
-                name: "name",
-                state: "state",
-                deadlock: "deadlock",
-                priority: "priority",
-                deamon: "deamon",
-                isAlive: "isAlive",
-                isInterrupted: "isInterrupted",
-            },
-            {
-                id: 1,
-                name: "name",
-                state: "state",
-                deadlock: "deadlock",
-                priority: "priority",
-                deamon: "deamon",
-                isAlive: "isAlive",
-                isInterrupted: "isInterrupted",
-            }, {
-                id: 1,
-                name: "name",
-                state: "state",
-                deadlock: "deadlock",
-                priority: "priority",
-                deamon: "deamon",
-                isAlive: "isAlive",
-                isInterrupted: "isInterrupted",
-            }
-        ]);
-    }
-
 }
 
 export default App;

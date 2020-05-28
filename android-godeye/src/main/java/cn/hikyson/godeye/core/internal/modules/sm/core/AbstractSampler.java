@@ -1,20 +1,23 @@
 package cn.hikyson.godeye.core.internal.modules.sm.core;
 
+import android.os.Handler;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import cn.hikyson.godeye.core.internal.modules.sm.Sm;
+import cn.hikyson.godeye.core.utils.ThreadUtil;
 
 /**
  * 每隔一个时间段做一次sample操作
  */
 public abstract class AbstractSampler {
 
-    private static final int DEFAULT_SAMPLE_INTERVAL = 300;
-
-    protected AtomicBoolean mShouldSample = new AtomicBoolean(false);
+    private AtomicBoolean mShouldSample = new AtomicBoolean(false);
+    public static final String SM_DO_DUMP = "godeye-sm-do-dump";
 
     //每隔interval时间dump一次信息
-    protected long mSampleInterval;
+    long mSampleInterval;
+
+    long mSampleDelay;
 
     private Runnable mRunnable = new Runnable() {
         @Override
@@ -22,41 +25,40 @@ public abstract class AbstractSampler {
             doSample();
 
             if (mShouldSample.get()) {
-                HandlerThreadFactory.getDoDumpThreadHandler()
-                        .postDelayed(mRunnable, mSampleInterval);
+                Handler handler = ThreadUtil.obtainHandler(SM_DO_DUMP);
+                if (handler != null) {
+                    handler.postDelayed(mRunnable, mSampleInterval);
+                }
             }
         }
     };
 
-    public AbstractSampler(long sampleInterval) {
-        if (0 == sampleInterval) {
-            sampleInterval = DEFAULT_SAMPLE_INTERVAL;
-        }
+    AbstractSampler(long sampleInterval, long sampleDelay) {
         mSampleInterval = sampleInterval;
+        mSampleDelay = sampleDelay;
     }
 
+
     public void start() {
-        if (mShouldSample.get()) {
+        if (mShouldSample.getAndSet(true)) {
             return;
         }
-        mShouldSample.set(true);
-
-        HandlerThreadFactory.getDoDumpThreadHandler().removeCallbacks(mRunnable);
-        HandlerThreadFactory.getDoDumpThreadHandler().postDelayed(mRunnable,
-                Sm.core().getSampleDelay());
+        Handler handler = ThreadUtil.obtainHandler(SM_DO_DUMP);
+        if (handler != null) {
+            handler.removeCallbacks(mRunnable);
+            handler.postDelayed(mRunnable, mSampleDelay);
+        }
     }
 
     public void stop() {
-        if (!mShouldSample.get()) {
+        if (!mShouldSample.getAndSet(false)) {
             return;
         }
-        mShouldSample.set(false);
-        HandlerThreadFactory.getDoDumpThreadHandler().removeCallbacks(mRunnable);
+        Handler handler = ThreadUtil.obtainHandler(SM_DO_DUMP);
+        if (handler != null) {
+            handler.removeCallbacks(mRunnable);
+        }
     }
 
     abstract void doSample();
-
-    public void setSampleInterval(long sampleInterval) {
-        mSampleInterval = sampleInterval;
-    }
 }

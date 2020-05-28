@@ -1,128 +1,269 @@
-import React, {Component} from 'react';
+/* eslint-disable react/no-string-refs */
+import React, { Component } from 'react';
 import '../App.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap-theme.min.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import {Row, Col, Clearfix, Grid, Panel, Modal, Button} from 'react-bootstrap'
-
-import Highcharts from '../../node_modules/highcharts/highstock';
-import ReactHighcharts from '../../node_modules/react-highcharts'
 import JSONPretty from '../../node_modules/react-json-pretty';
+
+import ReactHighcharts from '../../node_modules/react-highcharts'
+import Util from "../libs/util";
+import { Card, Modal, Table, Tabs, Badge, Button, Input } from 'antd'
 
 /**
  * Network
  */
 class Network extends Component {
 
+    static isNetworkInSearch(networkInfo, searchText) {
+        searchText = searchText.toLowerCase();
+        if (networkInfo) {
+            if (JSON.stringify(networkInfo).toString().toLowerCase().search(searchText) !== -1) {
+                return true
+            }
+        }
+        return false;
+    }
+
+    static findNetworksInSearch(networkInfos, searchText) {
+        if (searchText) {
+            const findNetworkInfos = [];
+            networkInfos.forEach((item) => {
+                if (Network.isNetworkInSearch(item, searchText)) {
+                    findNetworkInfos.push(item)
+                }
+            });
+            return findNetworkInfos;
+        }
+        return networkInfos;
+    }
+
     constructor(props) {
         super(props);
         this.handleClose = this.handleClose.bind(this);
-        this.handleClick = this.handleClick.bind(this);
-        this.options = {
-            chart: {
-                type: 'column'
-            },
-            title: {
-                text: null
-            },
-            tooltip: {
-                shared: true,
-                formatter: function () {
-                    let point = this.points[0].point;
-                    if (point.networkInfo) {
-                        return point.networkInfo.url + ' : ' + point.y.toFixed(1) + ' ms <br/>';
-                    }
-                    return "";
-                }
-            },
-            xAxis: {
-                type: 'category'
-            },
-            yAxis: {
-                title: {
-                    text: "Request time(ms)",
-                    align: "middle",
-                },
-                min: 0
-            },
-            plotOptions: {
-                series: {
-                    point: {
-                        events: {
-                            click: this.handleClick
-                        }
-                    }
-                }
-            },
-            series: [
-                {
-                    name: 'Request time',
-                    data: (Network.initSeries())
-                }
-            ]
-        };
+        this.handleShowDetail = this.handleShowDetail.bind(this);
+        this.handleClear = this.handleClear.bind(this);
+        this.renderExtra = this.renderExtra.bind(this);
         this.state = {
+            searchText: null,
             show: false,
-            networkInfo: {}
+            networkInfo: null,
+            networkInfos: [],
         };
     }
 
-    handleClick(e) {
-        if (e.point.networkInfo) {
-            this.setState({networkInfo: e.point.networkInfo, show: true});
+    handleShowDetail(networkInfo) {
+        if (networkInfo) {
+            this.setState({ networkInfo: networkInfo, show: true });
         }
     }
 
     handleClose() {
-        this.setState({show: false});
+        this.setState({ networkInfo: null, show: false });
     }
 
-    static initSeries() {
-        let data = [];
-        for (let i = 0; i < 20; i++) {
-            data.push({
-                x: i,
-                y: 0
-            });
-        }
-        return data;
+    handleClear() {
+        this.setState({
+            networkInfos: []
+        });
     }
 
     refresh(networkInfo) {
         if (networkInfo) {
-            let axisData = (new Date()).toLocaleTimeString();
-            this.refs.chart.getChart().series[0].addPoint({
-                name: axisData,
-                y: (networkInfo.endTimeMillis - networkInfo.startTimeMillis),
-                networkInfo: networkInfo
-            }, true, true, true);
+            const networkInfos = this.state.networkInfos;
+            const currentTime = new Date();
+            networkInfo.localTime = `${currentTime.toLocaleTimeString()}.${currentTime.getMilliseconds() % 1000}`;
+            networkInfos.unshift(networkInfo);
+            this.setState({
+                networkInfos: networkInfos,
+            });
         }
+    }
+
+    renderModelContent() {
+        const networkInfo = this.state.networkInfo;
+        if (networkInfo) {
+            const series = [];
+            if (networkInfo.networkTime) {
+                let otherTime = networkInfo.totalTime;
+                for (let i = 0; i < networkInfo.networkTime.length; i++) {
+                    series.push({
+                        name: networkInfo.networkTime[i].name,
+                        data: [networkInfo.networkTime[i].time]
+                    });
+                    otherTime = otherTime - networkInfo.networkTime[i].time;
+                }
+                if (otherTime < 0) {
+                    otherTime = 0;
+                }
+                series.push({
+                    name: "otherTime",
+                    data: [otherTime]
+                });
+            }
+            const optionsForTime = {
+                chart: {
+                    type: 'bar',
+                    height: 80,
+                    margin: 0,
+                    spacing: 0
+                },
+                title: {
+                    text: null
+                },
+                colors: Util.getCommonColors(),
+                legend: {
+                    enabled: true
+                },
+                exporting: {
+                    enabled: false
+                },
+                credits: {
+                    enabled: false
+                },
+                yAxis: {
+                    visible: false,
+                    title: {
+                        text: null
+                    },
+                    min: 0,
+                    gridLineWidth: 0
+                },
+                xAxis: {
+                    visible: false,
+                    categories: ['阶段耗时']
+                },
+                tooltip: {
+                    formatter: function () {
+                        return '<div style="text-align:center"><span style="font-size:13px;color:' +
+                            'black">' +
+                            this.series.name + " " + this.point.y + "ms"
+                            + '</span></div>'
+                    }
+                },
+                plotOptions: {
+                    series: {
+                        stacking: 'percent',
+                        dataLabels: {
+                            enabled: true,
+                            formatter: function () {
+                                return this.series.name + " " + this.series.data[0].y + "ms"
+                            }
+                        },
+                        borderRadius: 0,
+                        pointPadding: 0,
+                        groupPadding: 0,
+                        pointWidth: 25,
+                    }
+                },
+                series: series
+            };
+            return (
+                <div>
+                    <strong>
+                        Result:&nbsp;&nbsp;
+                        <Badge
+                            color={networkInfo.isSuccessful ? Util.getGreen() : Util.getRed()}
+                            text={networkInfo.message}>
+                        </Badge>
+                        <br />
+                        TotalTime:&nbsp;&nbsp;{networkInfo.totalTime}ms
+                    </strong>
+                    <ReactHighcharts
+                        ref="chartForTime"
+                        config={optionsForTime} />
+                    <Tabs defaultActiveKey="1">
+                        <Tabs.TabPane tab={`Request(${networkInfo.networkContent.networkType})`} key="1">
+                            <pre>{networkInfo.networkContent.requestContent}</pre>
+                        </Tabs.TabPane>
+                        <Tabs.TabPane tab={`Response(${networkInfo.networkContent.networkType})`} key="2">
+                            <pre>{networkInfo.networkContent.responseContent}</pre>
+                        </Tabs.TabPane>
+                        <Tabs.TabPane tab="ExtraInfo" key="3">
+                            <JSONPretty id="json-pretty" json={networkInfo.extraInfo} />
+                        </Tabs.TabPane>
+                    </Tabs>
+                </div>
+            )
+        }
+        return <div />
+    }
+
+    renderTable() {
+        const networkInfos = Network.findNetworksInSearch(this.state.networkInfos, this.state.searchText);
+        const showDetail = this.handleShowDetail;
+        const columns = [
+            {
+                title: 'LocalTime',
+                dataIndex: 'localtime',
+                key: 'localtime',
+            },
+            {
+                title: 'Summary',
+                dataIndex: 'summary',
+                key: 'summary',
+            },
+            {
+                title: 'Message',
+                dataIndex: 'message',
+                key: 'message',
+                render: (text, record) => {
+                    return (<div>
+                        <Badge color={record.networkInfo.isSuccessful ? Util.getGreen() : Util.getRed()} />
+                        <span>{record.networkInfo.message}</span>
+                    </div>);
+                }
+            },
+            {
+                title: 'TotalTime(ms)',
+                dataIndex: 'totalTime',
+                key: 'totalTime',
+            },
+            {
+                title: 'Detail',
+                key: 'action',
+                render: (text, record) => {
+                    return (<Button onClick={() => {
+                        showDetail(record.networkInfo)
+                    }}>Detail</Button>);
+                }
+            },
+        ];
+        const datas = [];
+        for (let i = 0; i < networkInfos.length; i++) {
+            const networkInfo = networkInfos[i];
+            datas.push({
+                key: i,
+                localtime: networkInfo.localTime,
+                summary: networkInfo.summary,
+                message: networkInfo.message,
+                totalTime: networkInfo.totalTime,
+                networkInfo: networkInfo
+            })
+        }
+        return (<Table dataSource={datas} columns={columns} size="middle"
+            pagination={{ pageSize: 10 }} />);
+    }
+
+    renderExtra() {
+        return (<span>
+            <Input.Search
+                style={{ width: 200 }}
+                placeholder="Input search text"
+                onSearch={value => this.setState({ searchText: value })}
+            />
+            &nbsp;&nbsp;
+            <Button
+                onClick={this.handleClear}>Clear</Button>
+        </span>)
     }
 
     render() {
         return (
-            <Panel style={{textAlign: "left"}}>
-                <Panel.Heading>
-                    <h5>Network(网络)
-                    </h5>
-                </Panel.Heading>
-                <Panel.Body>
-                    <ReactHighcharts
-                        ref="chart"
-                        config={this.options}
-                    />
-                </Panel.Body>
-                <Modal show={this.state.show} onHide={this.handleClose}>
-                    <Modal.Header>
-                        <Modal.Title>Block detail</Modal.Title>
-                    </Modal.Header>
-                    <Modal.Body>
-                        <JSONPretty id="json-pretty" json={this.state.networkInfo}/>
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button onClick={this.handleClose}>Close</Button>
-                    </Modal.Footer>
+            <Card title="Network(网络)" extra={this.renderExtra()}>
+                {this.renderTable()}
+                <Modal visible={this.state.show} onCancel={this.handleClose} title="Detail" closable={true} footer={null}
+                    onOk={this.handleClose} width={1000}>
+                    {this.renderModelContent()}
                 </Modal>
-            </Panel>);
+            </Card>);
     }
 }
 

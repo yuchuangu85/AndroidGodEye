@@ -1,11 +1,11 @@
-import React, {Component} from 'react';
+/* eslint-disable react/no-string-refs */
+import React, { Component } from 'react';
 import '../App.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap-theme.min.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import {Row, Col, Clearfix, Grid, Panel} from 'react-bootstrap'
 
-import Highcharts from '../../node_modules/highcharts/highstock';
 import ReactHighcharts from '../../node_modules/react-highcharts'
+
+import { Card } from 'antd'
+import HeapInfo from "./heap_info";
 
 /**
  * Heap
@@ -17,10 +17,22 @@ class Heap extends Component {
 
         this.options = {
             chart: {
-                type: 'area'
+                spacingLeft: 0,
+                spacingRight: 0,
+                height: 200,
+                type: "line"
+            },
+            exporting: {
+                enabled: false
+            },
+            legend: {
+                enabled: false
             },
             title: {
                 text: null
+            },
+            credits: {
+                enabled: false
             },
             tooltip: {
                 shared: true,
@@ -35,34 +47,40 @@ class Heap extends Component {
                 }
             },
             xAxis: {
-                type: 'category'
+                type: 'category',
+                labels: {
+                    enabled: false
+                },
+                lineWidth: 0,
+                tickLength: 0,
+                gridLineWidth: 1
             },
             yAxis: {
-                title: {
-                    text: "Heap(MB)",
-                    align: "middle",
-                },
-                min: 0
+                min: 0,
+                visible: false
+            },
+            plotOptions: {
+                line: {
+                    lineWidth: 2,
+                    marker: {
+                        enabled: false
+                    }
+                }
             },
             series: [
                 {
                     name: 'Allocated',
-                    stack: 'heap',
-                    stacking: 'normal',
-                    data: (Heap.initSeries())
-                },
-                {
-                    name: 'Free',
-                    stack: 'heap',
-                    stacking: 'normal',
-                    data: (Heap.initSeries())
-                }, {
-                    name: 'Max',
-                    type: 'line',
                     data: (Heap.initSeries())
                 }
             ]
         };
+        this.index = 0;
+    }
+
+
+    generateIndex() {
+        this.index = this.index + 1;
+        return this.index;
     }
 
     static initSeries() {
@@ -77,27 +95,22 @@ class Heap extends Component {
 
     refresh(heapInfo) {
         if (heapInfo) {
-            let axisData = (new Date()).toLocaleTimeString();
-            this.refs.chart.getChart().series[0].addPoint([axisData, heapInfo.allocatedKb / 1024], true, true, true);
-            this.refs.chart.getChart().series[1].addPoint([axisData, heapInfo.freeMemKb / 1024], true, true, true);
-            this.refs.chart.getChart().series[2].addPoint([axisData, heapInfo.maxMemKb / 1024], true, true, true);
+            let axisData = this.generateIndex() + (new Date()).toLocaleTimeString();
+            this.refs.chart.getChart().series[0].addPoint([axisData, heapInfo.allocatedKb / 1024], false, true, true);
+            this.refs.chart.getChart().redraw(true);
         }
+        this.refs.info.refresh(heapInfo);
     }
 
     render() {
         return (
-            <Panel style={{textAlign: "left"}}>
-                <Panel.Heading>
-                    <h5>Heap
-                    </h5>
-                </Panel.Heading>
-                <Panel.Body>
-                    <ReactHighcharts
-                        ref="chart"
-                        config={this.options}
-                    />
-                </Panel.Body>
-            </Panel>);
+            <Card title="Heap(堆内存)">
+                <HeapInfo ref="info" />
+                <ReactHighcharts
+                    ref="chart"
+                    config={this.options}
+                />
+            </Card>);
     }
 }
 

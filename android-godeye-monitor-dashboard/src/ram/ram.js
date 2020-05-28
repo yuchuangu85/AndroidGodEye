@@ -1,11 +1,11 @@
+/* eslint-disable react/no-string-refs */
 import React, {Component} from 'react';
 import '../App.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap-theme.min.css';
-import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import {Row, Col, Clearfix, Grid, Panel} from 'react-bootstrap'
 
-import Highcharts from '../../node_modules/highcharts/highstock';
+
 import ReactHighcharts from '../../node_modules/react-highcharts'
+
+import {Card} from 'antd'
 
 /**
  * RAM信息
@@ -16,22 +16,28 @@ class Ram extends Component {
         super(props);
         this.options = {
             chart: {
-                height: 200,
-                plotBackgroundColor: null,
-                plotBorderWidth: 0,
-                plotShadow: false,
-                margin: [0, 0, 0, 0]
+                height: 248,
+                spacing: [0, 0, 0, 0]
+            },
+            exporting: {
+                enabled: false
             },
             title: {
-                text: "Ram",
+                floating: true,
+                text: 'Ram',
                 align: 'center',
                 verticalAlign: 'middle',
-                y: 80
+                style: {
+                    fontSize: 13
+                }
+            },
+            credits: {
+                enabled: false
             },
             tooltip: {
                 formatter: function () {
-                    return '<div style="text-align:center"><span style="font-size:18px;color:' +
-                        ((Highcharts.theme && Highcharts.theme.contrastTextColor) || 'black') + '">' +
+                    return '<div style="text-align:center"><span style="font-size:13px;color:' +
+                        'black">' +
                         this.point.name + ":" +
                         (this.point.y / 1024).toFixed(1) + 'M,' +
                         this.point.percentage.toFixed(1) + "%"
@@ -41,25 +47,21 @@ class Ram extends Component {
             plotOptions: {
                 pie: {
                     dataLabels: {
-                        enabled: true,
-                        distance: -20,
+                        enabled: false,
                         format: '<b>{point.name}</b>'
                     },
-                    startAngle: -90,
-                    endAngle: 90,
-                    center: ['50%', '75%']
                 }
             },
             series: [{
                 type: 'pie',
                 name: 'ram',
-                innerSize: '70%',
+                innerSize: '90%',
                 data: []
             }]
         };
     }
 
-    createSeriresData(name, value) {
+    static createSeriresData(name, value) {
         return {
             name: name,
             y: value
@@ -70,10 +72,9 @@ class Ram extends Component {
         let datas = [];
         if (info) {
             let allocatedKb = info.totalMemKb - info.availMemKb;
-            datas.push(this.createSeriresData("allocated", allocatedKb));
-            datas.push(this.createSeriresData("free", info.availMemKb));
-            let title = "Total:" + (info.totalMemKb / 1024).toFixed(1) + "M";
-            this.options.title.text = title;
+            datas.push(Ram.createSeriresData("allocated", allocatedKb));
+            datas.push(Ram.createSeriresData("free", info.availMemKb));
+            this.options.title.text = "Ram(运行时内存)<br/>" + (info.totalMemKb / 1024).toFixed(1) + "M";
         } else {
             this.options.title.text = "**";
         }
@@ -83,18 +84,12 @@ class Ram extends Component {
 
     render() {
         return (
-            <Panel style={{textAlign: "left"}}>
-                <Panel.Heading>
-                    <h5>Ram(运行时内存)
-                    </h5>
-                </Panel.Heading>
-                <Panel.Body>
-                    <ReactHighcharts
-                        ref="chart"
-                        config={this.options}
-                    />
-                </Panel.Body>
-            </Panel>);
+            <Card>
+                <ReactHighcharts
+                    ref="chart"
+                    config={this.options}
+                />
+            </Card>);
     }
 }
 

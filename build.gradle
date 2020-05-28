@@ -2,25 +2,40 @@
 
 buildscript {
     repositories {
-        google()
-        jcenter()
+        if (Boolean.parseBoolean(USE_ALIYUN_REPO)) {
+            // Replacement of google()
+            maven { url 'http://maven.aliyun.com/nexus/content/repositories/google' }
+            // Replacement of mavenCentral()
+            maven { url 'http://maven.aliyun.com/nexus/content/groups/public/' }
+            // Replacement of jcenter()
+            maven { url 'http://maven.aliyun.com/nexus/content/repositories/jcenter' }
+        } else {
+            google()
+            jcenter()
+            mavenCentral()
+        }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.2'
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
-        classpath 'com.novoda:bintray-release:0.8.1'
+        classpath 'com.android.tools.build:gradle:3.2.1'
+        classpath 'com.novoda:bintray-release:0.9.1'
+        classpath "cn.hikyson.methodcanary:plugin:${VERSION_METHOD_CANARY}"
+        classpath 'com.dicedmelon.gradle:jacoco-android:0.1.4'
     }
 }
 
 allprojects {
     repositories {
-        google()
-        jcenter()
-    }
-    buildscript {
-        repositories {
+        if (Boolean.parseBoolean(USE_ALIYUN_REPO)) {
+            // Replacement of google()
+            maven { url 'http://maven.aliyun.com/nexus/content/repositories/google' }
+            // Replacement of mavenCentral()
+            maven { url 'http://maven.aliyun.com/nexus/content/groups/public/' }
+            // Replacement of jcenter()
+            maven { url 'http://maven.aliyun.com/nexus/content/repositories/jcenter' }
+        } else {
             google()
             jcenter()
+            mavenCentral()
         }
     }
 }
@@ -28,3 +43,7 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+apply from: rootProject.file('gradle/gradle-version-support.gradle')
+apply from: rootProject.file('gradle/gradle-changelog-support.gradle')
+apply from: rootProject.file('gradle/gradle-github-release-support.gradle')

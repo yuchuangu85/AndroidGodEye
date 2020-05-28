@@ -16,6 +16,9 @@ import cn.hikyson.godeye.core.utils.ProcessUtils;
  * Created by kysonchao on 2017/11/22.
  */
 public class MemoryUtil {
+    private static AtomicLong sTotalMem = new AtomicLong(0L);
+    private static ActivityManager sActivityManager;
+
     /**
      * 获取应用dalvik内存信息
      * 耗时忽略不计
@@ -31,6 +34,19 @@ public class MemoryUtil {
         return heapInfo;
     }
 
+//    /**
+//     * get native heap
+//     *
+//     * @return
+//     */
+//    public static NativeHeapInfo getAppNativeHeap() {
+//        NativeHeapInfo nativeHeapInfo = new NativeHeapInfo();
+//
+//        nativeHeapInfo.heapSizeKb = Debug.getNativeHeapSize() / 1024;
+//        nativeHeapInfo.heapAllocatedKb = Debug.getNativeHeapAllocatedSize() / 1024;
+//        nativeHeapInfo.heapFreeSizeKb = Debug.getNativeHeapFreeSize() / 1024;
+//        return nativeHeapInfo;
+//    }
 
     /**
      * 获取应用实际占用RAM
@@ -40,8 +56,10 @@ public class MemoryUtil {
      */
     public static PssInfo getAppPssInfo(Context context) {
         final int pid = ProcessUtils.getCurrentPid();
-        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        Debug.MemoryInfo memoryInfo = am.getProcessMemoryInfo(new int[]{pid})[0];
+        if (sActivityManager == null) {
+            sActivityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        }
+        Debug.MemoryInfo memoryInfo = sActivityManager.getProcessMemoryInfo(new int[]{pid})[0];
         PssInfo pssInfo = new PssInfo();
         pssInfo.totalPssKb = memoryInfo.getTotalPss();
         pssInfo.dalvikPssKb = memoryInfo.dalvikPss;
@@ -51,14 +69,16 @@ public class MemoryUtil {
     }
 
     public static RamInfo getRamInfo(Context context) {
-        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (sActivityManager == null) {
+            sActivityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        }
         final ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
-        am.getMemoryInfo(mi);
+        sActivityManager.getMemoryInfo(mi);
         final RamInfo ramMemoryInfo = new RamInfo();
         ramMemoryInfo.availMemKb = mi.availMem / 1024;
         ramMemoryInfo.isLowMemory = mi.lowMemory;
         ramMemoryInfo.lowMemThresholdKb = mi.threshold / 1024;
-        ramMemoryInfo.totalMemKb = getRamTotalMem(am);
+        ramMemoryInfo.totalMemKb = getRamTotalMem(sActivityManager);
         return ramMemoryInfo;
     }
 
@@ -82,7 +102,6 @@ public class MemoryUtil {
         }
     }
 
-    private static AtomicLong sTotalMem = new AtomicLong(0L);
 
     /**
      * 获取手机的RAM容量，其实和activityManager.getMemoryInfo(mi).totalMem效果一样，也就是说，在API16以上使用系统API获取，低版本采用这个文件读取方式
@@ -98,9 +117,8 @@ public class MemoryUtil {
             String subMemoryLine = memoryLine.substring(memoryLine
                     .indexOf("MemTotal:"));
             br.close();
-            long totalMemorySize = Integer.parseInt(subMemoryLine.replaceAll(
+            return (long) Integer.parseInt(subMemoryLine.replaceAll(
                     "\\D+", ""));
-            return totalMemorySize;
         } catch (IOException e) {
             e.printStackTrace();
         }
